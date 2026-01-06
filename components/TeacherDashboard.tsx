@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Assignment, Submission, AssignmentType, Question, User, Role, Folder } from '../types';
+import { Assignment, Submission, AssignmentType, Question, User, Role, Folder, QuestionLevel } from '../types';
 import { generateAssignmentContent } from '../services/geminiService';
 import { KHTN_CURRICULUM } from '../constants/curriculum';
 
@@ -52,11 +52,28 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     grade: '6' as '6' | '7' | '8' | '9',
     type: AssignmentType.HYBRID, 
     rubric: '',
-    mcqCount: 10,
-    essayCount: 2,
+    // Ma trận câu hỏi
+    matrix: {
+      mcq: { 'Biết': 4, 'Hiểu': 3, 'Vận dụng': 2, 'Vận dụng cao': 1 },
+      essay: { 'Biết': 0, 'Hiểu': 1, 'Vận dụng': 1, 'Vận dụng cao': 0 }
+    },
     questions: [] as Question[],
     folderId: ''
   });
+
+  const handleMatrixChange = (type: 'mcq' | 'essay', level: string, value: string) => {
+    const numValue = parseInt(value) || 0;
+    setFormData(prev => ({
+      ...prev,
+      matrix: {
+        ...prev.matrix,
+        [type]: {
+          ...prev.matrix[type],
+          [level]: numValue
+        }
+      }
+    }));
+  };
 
   const handleSelectLesson = (lessonTitle: string, grade: string) => {
     setFormData(prev => ({ ...prev, title: lessonTitle, grade: grade as any }));
@@ -98,7 +115,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     setIsGenerating(true);
     try {
       const content = await generateAssignmentContent(
-        formData.title, formData.grade, formData.type, formData.mcqCount, formData.essayCount
+        formData.title, formData.grade, formData.type, formData.matrix
       );
       setFormData(prev => ({ ...prev, description: content.description, rubric: content.rubric, questions: content.questions }));
     } catch (err) {
@@ -126,7 +143,15 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     };
     onAddAssignment(newAssignment);
     setIsModalOpen(false);
-    setFormData({ title: '', description: '', grade: '6', type: AssignmentType.HYBRID, rubric: '', mcqCount: 10, essayCount: 2, questions: [], folderId: '' });
+    // Reset form
+    setFormData({ 
+      title: '', description: '', grade: '6', type: AssignmentType.HYBRID, rubric: '', 
+      matrix: {
+        mcq: { 'Biết': 4, 'Hiểu': 3, 'Vận dụng': 2, 'Vận dụng cao': 1 },
+        essay: { 'Biết': 0, 'Hiểu': 1, 'Vận dụng': 1, 'Vận dụng cao': 0 }
+      },
+      questions: [], folderId: '' 
+    });
   };
 
   const filteredAssignments = useMemo(() => {
@@ -383,8 +408,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               <button onClick={() => setIsModalOpen(false)} className="w-14 h-14 rounded-full bg-white/5 hover:bg-rose-500/20 flex items-center justify-center text-slate-500 border border-white/5 transition-all"><i className="fas fa-times text-xl"></i></button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-12 overflow-y-auto custom-scrollbar flex-grow bg-[#080c1d]/50">
-              <div className="grid md:grid-cols-3 gap-10">
+            <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-10 overflow-y-auto custom-scrollbar flex-grow bg-[#080c1d]/50">
+              <div className="grid md:grid-cols-3 gap-8">
                 <div className="md:col-span-2 space-y-4">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] ml-6 block">1. Tên bài học / Chủ đề</label>
                   <div className="flex gap-4">
@@ -413,24 +438,59 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] ml-6 block">3. Khối lớp</label>
-                    <select className="w-full mt-2 bg-slate-950 border-2 border-white/5 rounded-[2rem] px-8 py-5 outline-none focus:border-indigo-500 font-black text-white" value={formData.grade} onChange={e => setFormData({...formData, grade: e.target.value as any})}>
-                      <option value="6">Lớp 6</option><option value="7">Lớp 7</option><option value="8">Lớp 8</option><option value="9">Lớp 9</option>
-                    </select>
+              {/* Ma trận câu hỏi */}
+              <div className="space-y-6">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] ml-6 block">3. Cấu trúc câu hỏi (Ma trận đề bài)</label>
+                <div className="grid md:grid-cols-2 gap-8">
+                  {/* Trắc nghiệm */}
+                  <div className="bg-slate-950/40 p-8 rounded-[3rem] border border-white/5 space-y-6">
+                    <div className="flex items-center gap-4 mb-2">
+                       <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white"><i className="fas fa-list-check"></i></div>
+                       <h5 className="text-sm font-black text-white uppercase tracking-widest">Trắc nghiệm (MCQ)</h5>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {['Biết', 'Hiểu', 'Vận dụng', 'Vận dụng cao'].map(level => (
+                        <div key={level} className="space-y-2">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase ml-2">{level}</label>
+                          <input 
+                            type="number" min="0" max="50"
+                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-bold"
+                            value={(formData.matrix.mcq as any)[level]}
+                            onChange={(e) => handleMatrixChange('mcq', level, e.target.value)}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="md:col-span-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] ml-6 block">4. Trạng thái</label>
-                    <div className="bg-emerald-500/5 text-emerald-400 p-5 rounded-[2rem] font-black text-[11px] flex items-center justify-center border border-emerald-500/10 mt-2 uppercase">HỆ THỐNG SẴN SÀNG TIẾP NHẬN</div>
+
+                  {/* Tự luận */}
+                  <div className="bg-slate-950/40 p-8 rounded-[3rem] border border-white/5 space-y-6">
+                    <div className="flex items-center gap-4 mb-2">
+                       <div className="w-10 h-10 bg-[var(--accent-pink)] rounded-xl flex items-center justify-center text-white"><i className="fas fa-pen-nib"></i></div>
+                       <h5 className="text-sm font-black text-white uppercase tracking-widest">Tự luận (Essay)</h5>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {['Biết', 'Hiểu', 'Vận dụng', 'Vận dụng cao'].map(level => (
+                        <div key={level} className="space-y-2">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase ml-2">{level}</label>
+                          <input 
+                            type="number" min="0" max="20"
+                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-bold"
+                            value={(formData.matrix.essay as any)[level]}
+                            onChange={(e) => handleMatrixChange('essay', level, e.target.value)}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
+                </div>
               </div>
 
-              <div className="bg-gradient-to-br from-indigo-900/80 to-indigo-950/80 p-12 rounded-[4rem] text-white relative overflow-hidden group border border-white/10">
+              <div className="bg-gradient-to-br from-indigo-900/80 to-indigo-950/80 p-10 md:p-14 rounded-[4rem] text-white relative overflow-hidden group border border-white/10">
                 <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
                   <div className="space-y-5">
                     <h4 className="text-4xl font-black tracking-tighter leading-none">Phát hành bài giảng cùng AI?</h4>
-                    <p className="text-blue-100/60 font-medium max-w-lg leading-relaxed">AI sẽ tạo đề thi, đáp án và nhận xét mẫu chuẩn chương trình mới.</p>
+                    <p className="text-blue-100/60 font-medium max-w-lg leading-relaxed">AI sẽ dựa trên ma trận đề bài trên để tạo nội dung chuẩn chương trình mới.</p>
                   </div>
                   <button type="button" onClick={handleGenerateAI} disabled={isGenerating} className="px-12 py-7 bg-white text-indigo-900 rounded-[2.5rem] font-black text-lg transition-all hover:scale-[1.05] hover:bg-[var(--accent-pink)] hover:text-white active:scale-95 flex items-center gap-5">
                     {isGenerating ? <div className="w-6 h-6 border-4 border-indigo-900 border-t-transparent rounded-full animate-spin"></div> : <i className="fas fa-sparkles text-amber-500"></i>}
@@ -440,8 +500,14 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </div>
 
               <div className="grid md:grid-cols-2 gap-12">
-                <textarea required rows={8} className="w-full bg-slate-950/50 border-2 border-white/5 rounded-[3rem] px-10 py-10 outline-none focus:border-indigo-500 text-slate-200 font-bold" placeholder="Nội dung đề bài chi tiết..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-                <textarea required rows={8} className="w-full bg-indigo-500/5 border-2 border-indigo-500/10 rounded-[3rem] px-10 py-10 outline-none focus:border-indigo-500 text-indigo-300 italic font-bold" placeholder="Đáp án & Rubric chấm điểm..." value={formData.rubric} onChange={e => setFormData({...formData, rubric: e.target.value})} />
+                <div className="space-y-4">
+                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-8">Nội dung đề bài chi tiết</label>
+                   <textarea required rows={8} className="w-full bg-slate-950/50 border-2 border-white/5 rounded-[3rem] px-10 py-10 outline-none focus:border-indigo-500 text-slate-200 font-bold" placeholder="Nội dung sẽ được AI điền vào đây..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                </div>
+                <div className="space-y-4">
+                   <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-8">Đáp án & Rubric chấm điểm</label>
+                   <textarea required rows={8} className="w-full bg-indigo-500/5 border-2 border-indigo-500/10 rounded-[3rem] px-10 py-10 outline-none focus:border-indigo-500 text-indigo-300 italic font-bold" placeholder="Đáp án chi tiết sẽ được AI điền vào đây..." value={formData.rubric} onChange={e => setFormData({...formData, rubric: e.target.value})} />
+                </div>
               </div>
 
               <div className="pt-10 flex flex-col md:flex-row justify-end gap-6">

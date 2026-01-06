@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { GradingResult, Assignment, AssignmentType, Question } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
  * AI function to grade student work from an image and typed answers
@@ -144,37 +144,52 @@ export const gradeStudentWork = async (
 };
 
 /**
- * AI function to generate questions and rubric based on a topic
+ * AI function to generate questions and rubric based on a topic and matrix
  */
 export const generateAssignmentContent = async (
   title: string,
   grade: string,
   type: AssignmentType,
-  mcqCount: number = 10,
-  essayCount: number = 2
+  matrix: {
+    mcq: Record<string, number>,
+    essay: Record<string, number>
+  }
 ): Promise<{ description: string; rubric: string; questions: Question[] }> => {
-  const modelName = 'gemini-3-flash-preview';
+  const modelName = 'gemini-3-pro-preview';
   
   const systemInstruction = `
     Bạn là chuyên gia soạn thảo học liệu môn Khoa học tự nhiên (KHTN) lớp 6, 7, 8, 9 theo chương trình GDPT 2018 Việt Nam.
-    Nhiệm vụ: Tạo nội dung bài tập có cấu trúc để hiển thị trên web.
+    Nhiệm vụ: Tạo nội dung bài tập có cấu trúc để hiển thị trên web dựa trên ma trận đề thi mà giáo viên cung cấp.
     
     YÊU CẦU CẤU TRÚC & MỨC ĐỘ:
     1. Trả về mảng "questions" chứa các đối tượng câu hỏi.
-    2. Mỗi câu hỏi phải có "level" thuộc một trong bốn mức độ: "Biết", "Hiểu", "Vận dụng", "Vận dụng cao".
-    3. Phân bổ mức độ hợp lý (ví dụ: 40% Biết, 30% Hiểu, 20% Vận dụng, 10% Vận dụng cao).
-    4. Mỗi câu hỏi trắc nghiệm (mcq) phải có: id, text, type: "mcq", level, options (mảng 4 lựa chọn A, B, C, D), và correctAnswer (ký tự A, B, C hoặc D).
-    5. Mỗi câu hỏi tự luận (essay) phải có: id, text, type: "essay", level.
-    6. Trả về "description" là bản tóm tắt đề bài bằng Markdown để xem nhanh.
-    7. Trả về "rubric" là đáp án chi tiết và hướng dẫn chấm điểm cho từng câu theo mức độ.
+    2. Mỗi câu hỏi phải có "level" thuộc đúng mức độ được yêu cầu: "Biết", "Hiểu", "Vận dụng", "Vận dụng cao".
+    3. Mỗi câu hỏi trắc nghiệm (mcq) phải có: id, text, type: "mcq", level, options (mảng 4 lựa chọn A, B, C, D), và correctAnswer (ký tự A, B, C hoặc D).
+    4. Mỗi câu hỏi tự luận (essay) phải có: id, text, type: "essay", level.
+    5. Trả về "description" là bản tóm tắt đề bài bằng Markdown để xem nhanh.
+    6. Trả về "rubric" là đáp án chi tiết và hướng dẫn chấm điểm cho từng câu theo mức độ.
+    7. Tuân thủ ĐÚNG số lượng câu hỏi theo từng mức độ đã yêu cầu trong prompt.
   `;
 
   const prompt = `
     Hãy tạo nội dung bài tập KHTN lớp ${grade} cho chủ đề: "${title}".
     Hình thức: ${type}.
-    Số câu trắc nghiệm yêu cầu: ${mcqCount} câu.
-    Số câu tự luận yêu cầu: ${essayCount} câu.
-    Hãy đảm bảo các câu hỏi được phân loại rõ ràng theo mức độ Biết, Hiểu, Vận dụng, Vận dụng cao.
+
+    MA TRẬN CÂU HỎI YÊU CẦU:
+    1. Trắc nghiệm (MCQ):
+       - Nhận biết: ${matrix.mcq['Biết']} câu
+       - Thông hiểu: ${matrix.mcq['Hiểu']} câu
+       - Vận dụng: ${matrix.mcq['Vận dụng']} câu
+       - Vận dụng cao: ${matrix.mcq['Vận dụng cao']} câu
+
+    2. Tự luận (Essay):
+       - Nhận biết: ${matrix.essay['Biết']} câu
+       - Thông hiểu: ${matrix.essay['Hiểu']} câu
+       - Vận dụng: ${matrix.essay['Vận dụng']} câu
+       - Vận dụng cao: ${matrix.essay['Vận dụng cao']} câu
+
+    Tổng cộng có ${Object.values(matrix.mcq).reduce((a, b) => a + b, 0)} câu trắc nghiệm và ${Object.values(matrix.essay).reduce((a, b) => a + b, 0)} câu tự luận.
+    Hãy đảm bảo nội dung câu hỏi khoa học, chính xác và bám sát kiến thức khối ${grade}.
   `;
 
   const responseSchema = {
