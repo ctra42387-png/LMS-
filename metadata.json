@@ -1,0 +1,7 @@
+{
+  "name": "Smart KHTN LMS",
+  "description": "Hệ thống quản lý học tập thông minh cho môn Khoa học tự nhiên (Lớp 6-9), hỗ trợ chấm bài tự động bằng AI từ ảnh chụp và nhận xét chi tiết theo chương trình GDPT 2018.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
