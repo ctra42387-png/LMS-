@@ -153,7 +153,7 @@ export const generateAssignmentContent = async (
   mcqCount: number = 10,
   essayCount: number = 2
 ): Promise<{ description: string; rubric: string; questions: Question[] }> => {
-  const modelName = 'gemini-3-pro-preview';
+  const modelName = 'gemini-3-flash-preview';
   
   const systemInstruction = `
     Bạn là chuyên gia soạn thảo học liệu môn Khoa học tự nhiên (KHTN) lớp 6, 7, 8, 9 theo chương trình GDPT 2018 Việt Nam.
